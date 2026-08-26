@@ -1,0 +1,10 @@
+## Interface: 120100
+## Title: 智能玩具轮换
+## Notes: 为每个方案创建独立按钮，按分组顺序轮换玩具。
+## Author: Codex
+## Version: 0.5.0
+## SavedVariables: SmartToyRollerDB
+
+SmartToyRoller_Config.lua
+SmartToyRoller.lua
+SmartToyRoller_Options.lua
