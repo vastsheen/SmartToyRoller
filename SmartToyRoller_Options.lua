@@ -11,6 +11,7 @@ local ROTATION_STRATEGY_ACTIVE_INDEX = "activeIndex"
 local panel
 local actionPopup
 local groupEditPopup
+local strategyPopup
 local selectedProfileID
 local selectedGroupIndex = 1
 local profileRows = {}
@@ -179,6 +180,7 @@ local RefreshPanel
 local RefreshToyList
 local HideGroupEditPopup
 local OpenGroupEditPopup
+local HideStrategyPopup
 
 local function NormalizeProfile(profile)
 	profile.label = Trim(profile.label)
@@ -312,6 +314,12 @@ local function SetRotationStrategy(strategy)
 	end
 	SmartToyRoller.RefreshAll()
 	RefreshPanel()
+end
+
+HideStrategyPopup = function()
+	if strategyPopup then
+		strategyPopup:Hide()
+	end
 end
 
 local function DeleteProfile()
@@ -638,6 +646,7 @@ RefreshPanel = function()
 	end
 
 	HideActionPopup()
+	HideStrategyPopup()
 
 	local db = GetDB()
 	local profile = GetProfile()
@@ -670,14 +679,29 @@ RefreshPanel = function()
 		for index, rowGroup in ipairs(profile.groups) do
 			local row = groupRows[index]
 			if not row then
-				row = CreateButton(panel, "", GROUP_X + 10 + ((index - 1) * 72), -304, 68)
+				row = CreateButton(panel, "", 0, 0, 68)
+				row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 				groupRows[index] = row
 			end
+			row:ClearAllPoints()
+			row:SetPoint("TOPLEFT", GROUP_X + 10 + ((index - 1) * 72), -304)
 			row:SetText((index == selectedGroupIndex and "* " or "") .. rowGroup.label)
-			row:SetScript("OnClick", function()
+			row:SetScript("OnClick", function(_, button)
 				selectedGroupIndex = index
 				RefreshPanel()
-				OpenGroupEditPopup()
+				if button == "RightButton" then
+					OpenGroupEditPopup()
+				end
+			end)
+			row:SetScript("OnEnter", function(self)
+				GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+				GameTooltip:AddLine(rowGroup.label, 1, 1, 1)
+				GameTooltip:AddLine("左键：选择分组", 0.8, 0.8, 0.8)
+				GameTooltip:AddLine("右键：编辑分组名称和跳过效果", 0.8, 0.8, 0.8)
+				GameTooltip:Show()
+			end)
+			row:SetScript("OnLeave", function()
+				GameTooltip:Hide()
 			end)
 			row:Show()
 		end
@@ -691,15 +715,41 @@ RefreshPanel = function()
 	)
 	panel.toggleButton:SetText(profile and profile.buttonVisible == true and "隐藏按钮" or "显示按钮")
 	panel.lockButton:SetText(profile and profile.buttonLocked and "解锁拖动" or "锁定拖动")
-	panel.priorityButton:SetText(
-		profile and profile.rotationStrategy ~= ROTATION_STRATEGY_ACTIVE_INDEX and "* 顺序" or "顺序"
-	)
-	panel.activeIndexButton:SetText(
-		profile and profile.rotationStrategy == ROTATION_STRATEGY_ACTIVE_INDEX and "* 轮转" or "轮转"
+	panel.strategyButton:SetText(
+		profile and profile.rotationStrategy == ROTATION_STRATEGY_ACTIVE_INDEX and "策略：轮转"
+			or "策略：顺序"
 	)
 
 	RefreshGroupSlots()
 	RefreshToyList()
+end
+
+local function CreateStrategyPopup(parent)
+	local popup = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+	popup:SetSize(104, 86)
+	popup:SetFrameStrata("DIALOG")
+	popup:SetFrameLevel(100)
+	popup:SetBackdrop({
+		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+		edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+		tile = true,
+		tileSize = 32,
+		edgeSize = 16,
+		insets = { left = 4, right = 4, top = 4, bottom = 4 },
+	})
+	popup:Hide()
+
+	popup.priorityButton = CreateButton(popup, "顺序", 14, -18, 76)
+	popup.priorityButton:SetScript("OnClick", function()
+		SetRotationStrategy(ROTATION_STRATEGY_PRIORITY)
+		HideStrategyPopup()
+	end)
+	popup.activeIndexButton = CreateButton(popup, "轮转", 14, -48, 76)
+	popup.activeIndexButton:SetScript("OnClick", function()
+		SetRotationStrategy(ROTATION_STRATEGY_ACTIVE_INDEX)
+		HideStrategyPopup()
+	end)
+	return popup
 end
 
 local function CreateToyButton(parent, x, y, width, height)
@@ -912,13 +962,15 @@ local function CreateOptionsPanel()
 			Print("已保存方案。")
 		end
 	end)
-	panel.priorityButton = CreateButton(panel, "顺序", GROUP_X + 204, -158, 58)
-	panel.priorityButton:SetScript("OnClick", function()
-		SetRotationStrategy(ROTATION_STRATEGY_PRIORITY)
-	end)
-	panel.activeIndexButton = CreateButton(panel, "轮转", GROUP_X + 268, -158, 58)
-	panel.activeIndexButton:SetScript("OnClick", function()
-		SetRotationStrategy(ROTATION_STRATEGY_ACTIVE_INDEX)
+	panel.strategyButton = CreateButton(panel, "策略：顺序", GROUP_X + 204, -158, 96)
+	panel.strategyButton:SetScript("OnClick", function(self)
+		if strategyPopup:IsShown() then
+			HideStrategyPopup()
+			return
+		end
+		strategyPopup:ClearAllPoints()
+		strategyPopup:SetPoint("TOPLEFT", self, "BOTTOMLEFT", -8, 4)
+		strategyPopup:Show()
 	end)
 
 	CreateLabel(panel, "分组操作", GROUP_X + 10, -222)
@@ -973,6 +1025,7 @@ local function CreateOptionsPanel()
 
 	actionPopup = CreateActionPopup(panel)
 	groupEditPopup = CreateGroupEditPopup(panel)
+	strategyPopup = CreateStrategyPopup(panel)
 
 	RefreshPanel()
 	panel:Hide()
