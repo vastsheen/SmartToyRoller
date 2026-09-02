@@ -22,8 +22,6 @@ local toyList = {}
 local toyPage = 1
 local groupToyContent
 
-local KNOWN_TOY_AURAS = SmartToyRollerKnownToyAuras or {}
-
 local function Print(message)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7SmartToyRoller|r: " .. tostring(message))
 end
@@ -203,11 +201,6 @@ local function NormalizeGroup(group)
 		group.label = "未命名分组"
 	end
 	group.skipAuraSpellIDs = group.skipAuraSpellIDs or {}
-	for index, spellID in ipairs(group.skipAuraSpellIDs) do
-		if spellID == 397827 then
-			group.skipAuraSpellIDs[index] = 207700
-		end
-	end
 	group.toys = group.toys or {}
 end
 
@@ -409,9 +402,6 @@ local function AddToyToGroup(toyID, groupIndex)
 	local group = profile.groups[groupIndex]
 	NormalizeGroup(group)
 	AddUnique(group.toys, toyID)
-	if #group.skipAuraSpellIDs == 0 and KNOWN_TOY_AURAS[toyID] then
-		group.skipAuraSpellIDs = KNOWN_TOY_AURAS[toyID]
-	end
 	selectedGroupIndex = groupIndex
 	SmartToyRoller.RefreshAll()
 	RefreshPanel()
@@ -426,7 +416,7 @@ local function AddToyToNewGroup(toyID)
 	local toyName = GetToyDisplay(toyID) or "新分组"
 	profile.groups[#profile.groups + 1] = {
 		label = toyName,
-		skipAuraSpellIDs = KNOWN_TOY_AURAS[toyID] or {},
+		skipAuraSpellIDs = {},
 		toys = { toyID },
 	}
 	selectedGroupIndex = #profile.groups

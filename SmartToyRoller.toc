@@ -2,9 +2,8 @@
 ## Title: 智能玩具轮换
 ## Notes: 为每个方案创建独立按钮，按分组顺序轮换玩具。
 ## Author: Codex
-## Version: 0.5.4
+## Version: 0.5.5
 ## SavedVariables: SmartToyRollerDB
 
-SmartToyRoller_Config.lua
 SmartToyRoller.lua
 SmartToyRoller_Options.lua

@@ -44,26 +44,6 @@ local function CopyDefaults(source, target)
 	return target
 end
 
-local function RepairKnownAuraIDs(db)
-	if type(db) ~= "table" or type(db.profiles) ~= "table" then
-		return
-	end
-
-	for _, profile in pairs(db.profiles) do
-		if type(profile.groups) == "table" then
-			for _, group in ipairs(profile.groups) do
-				if type(group.skipAuraSpellIDs) == "table" then
-					for index, spellID in ipairs(group.skipAuraSpellIDs) do
-						if spellID == 397827 then
-							group.skipAuraSpellIDs[index] = 207700
-						end
-					end
-				end
-			end
-		end
-	end
-end
-
 local function GetDB()
 	if type(SmartToyRollerDB) ~= "table" or SmartToyRollerDB.schemaVersion ~= DB_VERSION then
 		SmartToyRollerDB = CopyDefaults(DEFAULT_DB, nil)
@@ -71,7 +51,6 @@ local function GetDB()
 		SmartToyRollerDB = CopyDefaults(DEFAULT_DB, SmartToyRollerDB)
 	end
 
-	RepairKnownAuraIDs(SmartToyRollerDB)
 	return SmartToyRollerDB
 end
 

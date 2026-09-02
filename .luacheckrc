@@ -4,7 +4,6 @@ max_line_length = 140
 globals = {
   "SmartToyRoller",
   "SmartToyRollerDB",
-  "SmartToyRollerKnownToyAuras",
   "SlashCmdList",
   "SLASH_SMARTTOYROLLEROPTIONS1",
 }
