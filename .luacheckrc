@@ -10,6 +10,7 @@ globals = {
 
 read_globals = {
   "C_Container",
+  "C_Item",
   "C_ToyBox",
   "C_UnitAuras",
   "CreateFrame",

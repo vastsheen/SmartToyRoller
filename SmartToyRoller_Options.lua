@@ -393,7 +393,7 @@ local function MoveGroup(delta)
 	RefreshPanel()
 end
 
-local function AddToyToGroup(toyID, groupIndex)
+local function AddToyToGroup(toyID, groupIndex, autoFillSpell)
 	local profile = SaveFields(true)
 	if not profile or not profile.groups[groupIndex] then
 		return
@@ -401,22 +401,35 @@ local function AddToyToGroup(toyID, groupIndex)
 
 	local group = profile.groups[groupIndex]
 	NormalizeGroup(group)
-	AddUnique(group.toys, toyID)
+	local added = AddUnique(group.toys, toyID)
+	if added and autoFillSpell then
+		local _, spellID = C_Item.GetItemSpell(toyID)
+		if spellID and spellID > 0 then
+			AddUnique(group.skipAuraSpellIDs, spellID)
+		end
+	end
 	selectedGroupIndex = groupIndex
 	SmartToyRoller.RefreshAll()
 	RefreshPanel()
 end
 
-local function AddToyToNewGroup(toyID)
+local function AddToyToNewGroup(toyID, autoFillSpell)
 	local profile = SaveFields(true)
 	if not profile then
 		return
 	end
 
 	local toyName = GetToyDisplay(toyID) or "新分组"
+	local skipIDs = {}
+	if autoFillSpell then
+		local _, spellID = C_Item.GetItemSpell(toyID)
+		if spellID and spellID > 0 then
+			skipIDs[#skipIDs + 1] = spellID
+		end
+	end
 	profile.groups[#profile.groups + 1] = {
 		label = toyName,
-		skipAuraSpellIDs = {},
+		skipAuraSpellIDs = skipIDs,
 		toys = { toyID },
 	}
 	selectedGroupIndex = #profile.groups
@@ -465,6 +478,9 @@ end
 
 local function LayoutPopup(buttons)
 	local y = -34
+	if actionPopup.autoFillCheck and actionPopup.autoFillCheck:IsShown() then
+		y = -62
+	end
 	for _, button in ipairs(actionPopup.buttons) do
 		button:Hide()
 	end
@@ -489,8 +505,10 @@ local function OpenToyPopup(toyID)
 	actionPopup.title:SetText(toyName)
 	local buttons = {}
 
+	actionPopup.autoFillCheck:SetChecked(false)
+	actionPopup.autoFillCheck:Show()
 	actionPopup.newGroupButton:SetScript("OnClick", function()
-		AddToyToNewGroup(toyID)
+		AddToyToNewGroup(toyID, actionPopup.autoFillCheck:GetChecked())
 		HideActionPopup()
 	end)
 	buttons[#buttons + 1] = actionPopup.newGroupButton
@@ -499,7 +517,7 @@ local function OpenToyPopup(toyID)
 		local button = actionPopup.groupButtons[index]
 		button:SetText("加入：" .. profile.groups[index].label)
 		button:SetScript("OnClick", function()
-			AddToyToGroup(toyID, index)
+			AddToyToGroup(toyID, index, actionPopup.autoFillCheck:GetChecked())
 			HideActionPopup()
 		end)
 		buttons[#buttons + 1] = button
@@ -515,6 +533,7 @@ local function OpenSlotPopup(toyID)
 	local groupIndex = selectedGroupIndex
 	local toyName = GetToyDisplay(toyID) or "玩具"
 	actionPopup.title:SetText(toyName)
+	actionPopup.autoFillCheck:Hide()
 	actionPopup.removeButton:SetScript("OnClick", function()
 		RemoveToyFromGroup(toyID, groupIndex)
 		HideActionPopup()
@@ -821,7 +840,7 @@ end
 
 local function CreateActionPopup(parent)
 	local popup = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-	popup:SetSize(176, 120)
+	popup:SetSize(220, 120)
 	popup:SetFrameStrata("DIALOG")
 	popup:SetFrameLevel(100)
 	popup:SetBackdrop({
@@ -836,19 +855,24 @@ local function CreateActionPopup(parent)
 	popup.buttons = {}
 	popup.groupButtons = {}
 
-	popup.title = CreateLabel(popup, "", 12, -10, 152, "GameFontNormalSmall")
-	popup.newGroupButton = CreateButton(popup, "新建分组加入", 12, -34, 152)
+	popup.title = CreateLabel(popup, "", 12, -10, 196, "GameFontNormalSmall")
+	popup.autoFillCheck = CreateFrame("CheckButton", nil, popup, "UICheckButtonTemplate")
+	popup.autoFillCheck:SetSize(28, 28)
+	popup.autoFillCheck:SetPoint("TOPLEFT", 14, -32)
+	popup.autoFillCheck:SetText("加入时自动填入本组跳过效果ID")
+	popup.autoFillCheck:SetChecked(false)
+	popup.newGroupButton = CreateButton(popup, "新建分组加入", 12, -62, 196)
 	popup.buttons[#popup.buttons + 1] = popup.newGroupButton
-	popup.removeButton = CreateButton(popup, "移出本组", 12, -60, 152)
+	popup.removeButton = CreateButton(popup, "移出本组", 12, -60, 196)
 	popup.buttons[#popup.buttons + 1] = popup.removeButton
 
 	for index = 1, 12 do
-		local button = CreateButton(popup, "", 12, -60 - (index * 26), 152)
+		local button = CreateButton(popup, "", 12, -60 - (index * 26), 196)
 		popup.groupButtons[index] = button
 		popup.buttons[#popup.buttons + 1] = button
 	end
 
-	popup.closeButton = CreateButton(popup, "关闭", 12, -300, 152)
+	popup.closeButton = CreateButton(popup, "关闭", 12, -300, 196)
 	popup.closeButton:SetScript("OnClick", HideActionPopup)
 	return popup
 end
