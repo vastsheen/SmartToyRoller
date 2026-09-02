@@ -112,16 +112,16 @@ end
 
 local function GroupShouldSkip(group)
 	if type(group) ~= "table" or type(group.skipAuraSpellIDs) ~= "table" then
-		return false
+		return false, nil
 	end
 
 	for _, spellID in ipairs(group.skipAuraSpellIDs) do
 		if GetAuraBySpellID(spellID) then
-			return true
+			return true, spellID
 		end
 	end
 
-	return false
+	return false, nil
 end
 
 local function GetToyCooldown(toyID)
@@ -152,23 +152,49 @@ local function ToyUsable(toyID)
 		and not ToyOnCooldown(toyID)
 end
 
+local function GetToyUnavailableReason(toyID)
+	if not toyID or not PlayerHasToy(toyID) then
+		return "未拥有玩具"
+	end
+	if ToyOnCooldown(toyID) then
+		return "cd 中"
+	end
+	if C_ToyBox.IsToyUsable and not C_ToyBox.IsToyUsable(toyID) then
+		return "不可用"
+	end
+	return "不可用"
+end
+
 local function PickToy(group)
 	if type(group) ~= "table" or type(group.toys) ~= "table" then
-		return nil
+		return nil, "未配置玩具"
 	end
 
 	local candidates = {}
+	local reasonCounts = {}
 	for _, toyID in ipairs(group.toys) do
 		if ToyUsable(toyID) then
 			candidates[#candidates + 1] = toyID
+		else
+			local reason = GetToyUnavailableReason(toyID)
+			reasonCounts[reason] = (reasonCounts[reason] or 0) + 1
 		end
 	end
 
 	if #candidates == 0 then
-		return nil
+		if #group.toys == 0 then
+			return nil, "未配置玩具"
+		end
+		if reasonCounts["cd 中"] then
+			return nil, "cd 中"
+		end
+		if reasonCounts["未拥有玩具"] then
+			return nil, "未拥有玩具"
+		end
+		return nil, "不可用"
 	end
 
-	return candidates[random(#candidates)]
+	return candidates[random(#candidates)], nil
 end
 
 local function GetProfileStrategy(profile)
@@ -178,13 +204,25 @@ local function GetProfileStrategy(profile)
 	return ROTATION_STRATEGY_PRIORITY
 end
 
-local function ResolvePriorityAction(profile)
+local function PrintGroupSkip(profile, group, reason)
+	Print((profile.label or "方案") .. "-" .. (group.label or "分组") .. "跳过-" .. reason)
+end
+
+local function ResolvePriorityAction(profile, reportSkips)
 	for groupIndex = 1, #profile.groups do
 		local group = profile.groups[groupIndex]
-		if not GroupShouldSkip(group) then
-			local toyID = PickToy(group)
+		local shouldSkip = GroupShouldSkip(group)
+		if shouldSkip then
+			if reportSkips then
+				PrintGroupSkip(profile, group, "效果已存在")
+			end
+		else
+			local toyID, unavailableReason = PickToy(group)
 			if toyID then
 				return "item", "item:" .. toyID, groupIndex, nil
+			end
+			if reportSkips then
+				PrintGroupSkip(profile, group, unavailableReason or "不可用")
 			end
 		end
 	end
@@ -212,7 +250,7 @@ local function ResolveActiveIndexAction(profile)
 	return nil, nil, nil, "没有可用玩具"
 end
 
-local function ResolveProfileAction(profileID)
+local function ResolveProfileAction(profileID, reportSkips)
 	local db = GetDB()
 	local profile = db.profiles[profileID]
 	if not profile then
@@ -227,7 +265,7 @@ local function ResolveProfileAction(profileID)
 		return ResolveActiveIndexAction(profile)
 	end
 
-	return ResolvePriorityAction(profile)
+	return ResolvePriorityAction(profile, reportSkips)
 end
 
 local function AdvanceProfileAfterClick(profileID)
@@ -248,13 +286,13 @@ local function AdvanceProfileAfterClick(profileID)
 	profile.activeGroupIndex = (action.groupIndex % #profile.groups) + 1
 end
 
-local function SetButtonAction(profileID)
+local function SetButtonAction(profileID, reportSkips)
 	local button = state.buttons[profileID]
 	if not button then
 		return
 	end
 
-	local actionType, value, groupIndex, errorMessage = ResolveProfileAction(profileID)
+	local actionType, value, groupIndex, errorMessage = ResolveProfileAction(profileID, reportSkips)
 	state.actions[profileID] = {
 		actionType = actionType,
 		value = value,
@@ -397,7 +435,7 @@ local function EnsureProfileButton(profileID)
 		SetButtonAction(self.profileID)
 	end)
 	button:HookScript("PreClick", function(self)
-		SetButtonAction(self.profileID)
+		SetButtonAction(self.profileID, true)
 	end)
 
 	SetButtonAction(profileID)
