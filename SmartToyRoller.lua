@@ -11,6 +11,7 @@ local DEFAULT_DB = {
 local state = {
 	buttons = {},
 	actions = {},
+	randomSeeded = false,
 }
 
 SmartToyRoller = SmartToyRoller or {}
@@ -20,6 +21,49 @@ local ROTATION_STRATEGY_ACTIVE_INDEX = "activeIndex"
 
 local function Print(message)
 	DEFAULT_CHAT_FRAME:AddMessage("|cff4fc3f7SmartToyRoller|r: " .. tostring(message))
+end
+
+local function GetSeedTime()
+	local getServerTime = _G.GetServerTime
+	local getTime = _G.GetTime
+	local currentTime = _G.time
+	if type(getServerTime) == "function" then
+		return getServerTime()
+	end
+	if type(currentTime) == "function" then
+		return currentTime()
+	end
+	if type(getTime) == "function" then
+		local seedTime = getTime() * 1000
+		local floorValue = math and math.floor or _G.floor
+		return type(floorValue) == "function" and floorValue(seedTime) or seedTime
+	end
+	return 1
+end
+
+local function SeedRandom()
+	if state.randomSeeded then
+		return
+	end
+	state.randomSeeded = true
+
+	local seed = GetSeedTime()
+	if math and type(math.randomseed) == "function" then
+		math.randomseed(seed)
+	elseif type(_G.randomseed) == "function" then
+		_G.randomseed(seed)
+	end
+end
+
+local function RandomIndex(maxValue)
+	SeedRandom()
+	if type(_G.random) == "function" then
+		return _G.random(maxValue)
+	end
+	if math and type(math.random) == "function" then
+		return math.random(maxValue)
+	end
+	return 1
 end
 
 local function CopyDefaults(source, target)
@@ -173,7 +217,7 @@ local function PickToy(group)
 		return nil, "不可用"
 	end
 
-	return candidates[random(#candidates)], nil
+	return candidates[RandomIndex(#candidates)], nil
 end
 
 local function GetProfileStrategy(profile)
@@ -517,7 +561,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
 		GetDB()
 		EnsureAllButtons()
 	elseif event == "PLAYER_LOGIN" then
-		math.randomseed(time())
+		SeedRandom()
 		EnsureAllButtons()
 	elseif event == "PLAYER_ENTERING_WORLD" then
 		EnsureAllButtons()
