@@ -311,7 +311,7 @@ end
 
 local function SetButtonAction(profileID, reportSkips)
 	local button = state.buttons[profileID]
-	if not button then
+	if not button or InCombatLockdown() then
 		return
 	end
 
@@ -337,7 +337,8 @@ local function SetButtonAction(profileID, reportSkips)
 
 	if button.icon then
 		local itemID = value and tonumber(tostring(value):match("item:(%d+)"))
-		button.icon:SetTexture((itemID and GetItemIcon(itemID)) or 134400)
+		local icon = itemID and C_Item and C_Item.GetItemIconByID and C_Item.GetItemIconByID(itemID)
+		button.icon:SetTexture(icon or 134400)
 	end
 end
 
@@ -476,6 +477,9 @@ local function EnsureAllButtons()
 end
 
 local function HideRemovedButtons()
+	if InCombatLockdown() then
+		return
+	end
 	local db = GetDB()
 	for profileID, button in pairs(state.buttons) do
 		if not db.profiles[profileID] then
